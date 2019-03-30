@@ -16,10 +16,10 @@ $this->params['breadcrumbs'][] = $this->title;
         <div class="row">
             <?php if (!empty($models)) :?>
                 <?php foreach ($models as $key => $model) : ?>
-                    <div class="col-md-2">
+                    <div class="col-sm-2">
                         <div class="card mb-2 box-shadow">
-                            <h3>Empty <?php echo $model->images[0]->name ?></h3>
-                            <?php echo Html::img('@web/uploads/car/' . $model->id . '/thumbs/' . $model->images[0]->size, ['width' => 146, 'height' => 106, 'class' => 'card-img-top']) ?>
+                            <?php echo Html::img('@web/uploads/car/' . $model->id . '/thumbs/' . $model->smallImage->name,
+                                ['class' => 'card-img-top']) ?>
                             <div class="card-body">
                                 <p class="card-text">Марка : <a href=""><?php echo $model->brand->name ?></a></p>
                                 <p class="card-text">Модель : <a href="<?php echo Url::to(['site/car-detail', 'id' => $model->id]) ?>"><?php echo $model->type->name ?></a></p>

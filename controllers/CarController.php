@@ -22,6 +22,7 @@ use Imagine\Image\Box;
 use Imagine\Image\ImageInterface;
 use Imagine\Image\ManipulatorInterface;
 use function implode;
+use function is_null;
 use function json_encode;
 use function md5;
 use function print_r;
@@ -101,35 +102,31 @@ class CarController extends Controller
         $aDeviceTypes = $this->device_types_distribution();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            $this->car_add_devices($model, [], Yii::$app->request->post('devices'));
+            $devicesIds = Yii::$app->request->post('devices');
+            if ($devicesIds) {
+                $this->car_add_devices($model, [], $devicesIds);
+            }
             $images = UploadedFile::getInstances($model, 'images');
             $path = "uploads/car/{$model->id}/";
-            if ($images) {
-                foreach ($images as $key => $image) {
-                    $filename_small = md5($model->id) . "{$key}_" . Image::SMALL . '.' . $image->extension;
-                    $this->save_image($image, $path . 'full/', $filename_small);
-                    $this->thumbs_image($path. 'full/' . $filename_small, $path . 'thumbs/', $filename_small, 146, 106);
-                    $large_image = new Image(['name' => $filename_small, 'size' => Image::SMALL, 'object_id' => $model->id, 'object_type' => 'car']);
-                    $large_image->save(false);
-                    $filename_large = md5($model->id) . "{$key}_" . Image::LARGE . '.' . $image->extension;
-                    $this->thumbs_image($path. 'full/' . $filename_small, $path . 'thumbs/', $filename_large, 720, 540);
-                    $small_image = new Image(['size' => Image::LARGE, 'object_id' => $model->id, 'object_type' => 'car', 'name' => $filename_large]);
-                    $small_image->save(false);
-                }
-                if (file_exists($path . "full/")) {
-                    self::delTree(Yii::getAlias("@web/{$path}full/"));
-                }
-            } else {
-                if (file_exists('uploads/no-image.png')) {
-                    $filename_small = md5($model->id) . Image::SMALL . '.png';
-                    $this->thumbs_image('uploads/no-image.png', $path . 'thumbs/', $filename_small, 146, 106);
-                    $large_image = new Image(['name' => $filename_small, 'size' => Image::SMALL, 'object_id' => $model->id, 'object_type' => 'car']);
-                    $large_image->save(false);
-                    $filename_large = md5($model->id) . Image::LARGE . '.png';
-                    $this->thumbs_image('uploads/no-image.png', $path . 'thumbs/', $filename_large, 720, 540);
-                    $small_image = new Image(['size' => Image::LARGE, 'object_id' => $model->id, 'object_type' => 'car', 'name' => $filename_large]);
-                    $small_image->save(false);
-                }
+            if (!$images) {
+                $imagePath = 'uploads/no-image.png';
+                $images[] = new UploadedFile(['tempName' => $imagePath, 'name' => basename($imagePath)]);
+            }
+            foreach ($images as $key => $image) {
+                $filename_small = md5($model->id) . "{$key}_" . Image::SMALL . '.' . $image->extension;
+                $this->thumbs_image($image->tempName, $path . 'thumbs/', $filename_small, 146, 106);
+                $model->link('smallImage', $small_image = new Image([
+                    'name' => $filename_small,
+                    'size' => Image::SMALL,
+                    'object_type' => 'car'
+                ]));
+                $filename_large = md5($model->id) . "{$key}_" . Image::LARGE . '.' . $image->extension;
+                $this->thumbs_image($image->tempName, $path . 'thumbs/', $filename_large, 720, 540);
+                $model->link('smallImage', $large_image = new Image([
+                    'name' => $filename_large,
+                    'size' => Image::LARGE,
+                    'object_type' => 'car'
+                ]));
             }
             return $this->redirect(['view', 'id' => $model->id]);
         }
@@ -155,6 +152,7 @@ class CarController extends Controller
         $aOldDevicesIds = ArrayHelper::map($model->devices, 'id', 'id');
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
             $this->car_add_devices($model, $aOldDevicesIds, Yii::$app->request->post('devices'));
+            return $this->redirect(['view', 'id' => $model->id]);
         }
 
         return $this->render('update', [
@@ -173,8 +171,8 @@ class CarController extends Controller
      */
     public function actionDelete($id)
     {
-        CarDevice::deleteAll(['car_id' => $id]);
-        $oModel = Car::find()->where(['id' => $id])->with('allImages')->limit(1)->one();
+        $oModel = Car::find()->where(['id' => $id])->with('allImages')->one();
+        $oModel->unlinkAll('devices',true);
         foreach ($oModel->allImages as $oImage) {
             $oImage->delete();
         }
@@ -188,13 +186,11 @@ class CarController extends Controller
     {
         $id = Yii::$app->request->post('id');
         $types = Type::find()->where(['brand_id' => $id])->asArray()->all();
-        $response = "";
+        $response = "<option value>Выберите модель авто</option>";
         if (!empty($types)) {
             foreach ($types as $type) {
                 $response .= '<option value=\'' . $type['id'] . '\'>' . $type['name'] . '</option>';
             }
-        } else {
-            $response .= '<option value>Выберите модель авто</option>';
         }
         return $response;
     }
@@ -216,7 +212,7 @@ class CarController extends Controller
     }
 
     protected static function delTree($dir) {
-        $files = array_diff(scandir($dir), array('.','..'));
+        $files = array_diff(scandir($dir), array('.', '..'));
         foreach ($files as $file) {
             (is_dir("$dir/$file")) ? self::delTree("$dir/$file") : unlink("$dir/$file");
         }
@@ -230,7 +226,6 @@ class CarController extends Controller
         foreach ($aDevices as $oDevice) {
             $aDeviceTypes[$oDevice['deviceType']['title']][] = $oDevice;
         }
-
         return $aDeviceTypes;
     }
 
@@ -239,11 +234,15 @@ class CarController extends Controller
         $aNewDevicesIds = Yii::$app->request->post('devices');
         $ids_to_delete = array_diff($aOldDevicesIds, $aNewDevicesIds);
         $ids_to_add = array_diff($aNewDevicesIds, $aOldDevicesIds);
-        foreach (Device::findAll(['id' => $ids_to_add]) as $oDevice) {
-            $oModel->link('devices', $oDevice);
+        if ($ids_to_add) {
+            foreach (Device::findAll(['id' => $ids_to_add]) as $oDevice) {
+                $oModel->link('devices', $oDevice);
+            }
         }
-        foreach (Device::findAll(['id' => $ids_to_delete]) as $oDevice) {
-            $oModel->unlink('devices', $oDevice, true);
+        if ($ids_to_delete) {
+            foreach (Device::findAll(['id' => $ids_to_delete]) as $oDevice) {
+                $oModel->unlink('devices', $oDevice, true);
+            }
         }
     }
 

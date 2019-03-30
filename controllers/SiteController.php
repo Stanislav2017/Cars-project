@@ -6,6 +6,8 @@ use app\models\Car;
 use app\models\CarDevice;
 use function compact;
 use function getimagesize;
+use function print_r;
+use const true;
 use function var_dump;
 use Yii;
 use yii\data\Pagination;
@@ -137,7 +139,8 @@ class SiteController extends Controller
 
     public function actionCars()
     {
-        $query = Car::find();
+        /*var_dump(Car::find()->with('smallImage')->all());*/
+        $query = Car::find()->with(['smallImage', 'brand', 'type']);
         $countQuery = clone $query;
         $pages = new Pagination([
             'totalCount' => $countQuery->count(),
@@ -156,12 +159,12 @@ class SiteController extends Controller
 
     public function actionRemoveCar($id)
     {
-        CarDevice::deleteAll(['car_id' => $id]);
         $oModel = Car::find()->where(['id' => $id])->with('allImages')->limit(1)->one();
         foreach ($oModel->allImages as $oImage) {
             $oImage->delete();
         }
         self::delTree('uploads/car/' .  $oModel->id . '/');
+        $oModel->unlinkAll('devices',true);
         $oModel->delete();
 
         return $this->redirect(['site/cars']);
@@ -172,13 +175,16 @@ class SiteController extends Controller
         if (($model = Car::findOne($id)) !== null) {
             return $model;
         }
-
         throw new NotFoundHttpException('The requested page does not exist.');
     }
 
     public function actionCarDetail($id)
     {
-        $oModel = Car::find()->where(['id' => $id])->with(['brand', 'type', 'devices'])->one();
+        $oModel = Car::find()
+            ->where(['id' => $id])
+            ->with(['brand', 'type', 'devices', 'smallImages', 'largeImage'])
+            ->one();
+        /*return '<pre>' . print_r($oModel, true) . '</pre>';*/
         return $this->render('car-detail', [
             'oModel' => $oModel
         ]);

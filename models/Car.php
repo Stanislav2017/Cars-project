@@ -2,6 +2,7 @@
 
 namespace app\models;
 
+use app\traits\Morphed;
 use Yii;
 use yii\helpers\ArrayHelper;
 
@@ -17,9 +18,7 @@ use yii\helpers\ArrayHelper;
  */
 class Car extends \yii\db\ActiveRecord
 {
-
     public $images;
-    public $music;
     /**
      * {@inheritdoc}
      */
@@ -59,29 +58,41 @@ class Car extends \yii\db\ActiveRecord
         ];
     }
 
+    public function getAllImages()
+    {
+        return $this->hasMany(Image::class, ['object_id' => 'id'])->onCondition(['object_type' => 'car']);
+    }
+
     public function getSmallImages()
     {
-        $this->hasMany(Image::class, ['object_id' => 'id', ])->where(['size' => Image::SMALL, 'object_type' => 'car'])->limit(1);
+        return $this->hasMany(Image::class, ['object_id' => 'id'])->onCondition([
+            'object_type' => 'car',
+            'size' => Image::SMALL
+        ]);
     }
 
     public function getSmallImage()
     {
-        $this->hasOne(Image::class, ['object_id' => 'id', 'object_type' => 'car'])->where(['size' => Image::SMALL]);
+        return $this->hasOne(Image::class, ['object_id' => 'id'])->onCondition([
+            'object_type' => 'car',
+            'size' => Image::SMALL
+        ]);
     }
 
     public function getLargeImages()
     {
-        $this->hasMany(Image::class, ['object_id' => 'id'])->where(['size' => Image::LARGE]);
+        return $this->hasMany(Image::class, ['object_id' => 'id'])->onCondition([
+            'object_type' => 'car',
+            'size' => Image::LARGE
+        ]);
     }
 
     public function getLargeImage()
     {
-        $this->hasOne(Image::class, ['object_id' => 'id'])->where(['size' => Image::LARGE]);
-    }
-
-    public function getAllImages()
-    {
-        return $this->hasMany('app\models\Image', ['object_id' => 'id'])->where(['object_type' => 'car']);
+        return $this->hasOne(Image::class, ['object_id' => 'id'])->onCondition([
+            'object_type' => 'car',
+            'size' => Image::LARGE
+        ]);
     }
 
     public function getBrand()

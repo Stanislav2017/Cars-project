@@ -52,13 +52,13 @@ trait ImageTrait
         }
         list($width, $height) = getimagesize($image_path);
         if ($width > $height) {
-            $image_height = floor(($height/$width)*$new_width);
+            $image_height = floor(($height / $width) * $new_width);
             $image_width  = $new_width;
         } else {
-            $image_width  = floor(($width/$height)*$new_height);
+            $image_width  = floor(($width / $height) * $new_height);
             $image_height = $new_height;
         }
 
-        $image->resize(new Box($image_width, $image_height))->save($path . $filename, ['quality' => 90]);
+        $image->resize(new Box($image_width, $image_height))->save($path . $filename, ['quality' => 100]);
     }
 }

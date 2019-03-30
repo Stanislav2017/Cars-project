@@ -18,7 +18,7 @@ use yii\widgets\ActiveForm;
         ArrayHelper::map(Brand::find()->all(),'id','name'), ['prompt' => 'Выбор марку авто']) ?>
 
     <?= $form->field($model, 'type_id')->dropDownList(ArrayHelper::map($types,'id','name'),
-        empty($types) ? ['prompt' => 'Выбор модеи авто'] : []) ?>
+        empty($types) ? ['prompt' => 'Выберите модель авто'] : []) ?>
 
     <?= $form->field($model, 'mileage')->textInput(['maxlength' => true]) ?>
 

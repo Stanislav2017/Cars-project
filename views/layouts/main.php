@@ -21,6 +21,15 @@ AppAsset::register($this);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php $this->registerCsrfMetaTags() ?>
     <title><?= Html::encode($this->title) ?></title>
+    <style type="text/css">
+        .col-md-4{
+           display: flex;
+        }
+        .card-img-top{
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+    </style>
     <?php $this->head() ?>
 </head>
 <body>

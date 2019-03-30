@@ -17,4 +17,11 @@ $(function () {
             }
         });
     });
+
+    $(document).on("click", "#small-image", function () {
+        var image = $(this);
+        var name = image.data('name').replace('_small', '_large');
+        var src = image.attr('src');
+        $("#large-image").attr("src", src.substr(0, src.lastIndexOf('/')) + '/' +  name);
+    });
 });
