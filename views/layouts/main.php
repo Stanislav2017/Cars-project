@@ -29,6 +29,10 @@ AppAsset::register($this);
             justify-content: space-between;
             margin-top: 20px;
         }
+        #car-img{
+            min-height: 200px;
+            margin: auto;
+        }
     </style>
     <?php $this->head() ?>
 </head>

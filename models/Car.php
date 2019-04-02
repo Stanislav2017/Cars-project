@@ -19,6 +19,8 @@ use yii\helpers\ArrayHelper;
 class Car extends \yii\db\ActiveRecord
 {
     public $images;
+
+    const MODEL_NAME = 'машины';
     /**
      * {@inheritdoc}
      */

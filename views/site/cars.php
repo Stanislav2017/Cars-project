@@ -17,7 +17,7 @@ $this->params['breadcrumbs'][] = $this->title;
             <?php if (!empty($models)) :?>
                 <?php foreach ($models as $key => $model) : ?>
                     <div class="col-sm-2">
-                        <div class="card mb-2 box-shadow">
+                        <div class="card mb-2 box-shadow" id="car-img">
                             <?php echo Html::img('@web/uploads/car/' . $model->id . '/thumbs/' . $model->smallImage->name,
                                 ['class' => 'card-img-top']) ?>
                             <div class="card-body">

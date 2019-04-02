@@ -13,21 +13,27 @@ use function array_diff;
 use function array_merge;
 use function array_unique;
 use function array_values;
+use function dirname;
 use const false;
 use function file_exists;
 use function get_class;
 use function getimagesize;
+use function imagefontwidth;
 use Imagine\Gd\Imagine;
 use Imagine\Image\Box;
 use Imagine\Image\ImageInterface;
 use Imagine\Image\ManipulatorInterface;
+use Imagine\Image\Palette\RGB;
 use function implode;
 use function is_null;
 use function json_encode;
+use function mb_strlen;
 use function md5;
+use const null;
 use function print_r;
 use ReflectionClass;
 use function rmdir;
+use function strlen;
 use function time;
 use const true;
 use function unlink;
@@ -99,34 +105,29 @@ class CarController extends Controller
     public function actionCreate()
     {
         $model = new Car();
-        $aDeviceTypes = $this->device_types_distribution();
+        $aDeviceTypes = $this->deviceTypesDistribution();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
             $devicesIds = Yii::$app->request->post('devices');
             if ($devicesIds) {
-                $this->car_add_devices($model, [], $devicesIds);
+                $this->carAddDevices($model, [], $devicesIds);
             }
             $images = UploadedFile::getInstances($model, 'images');
-            $path = "uploads/car/{$model->id}/";
+            $path = "uploads/car/{$model->id}/thumbs/";
             if (!$images) {
-                $imagePath = 'uploads/no-image.png';
+                $imagePath = $path . md5($model->id) . '.png';
+                $this->createImage($imagePath, '#FFF');
+                $this->imageWriteText($imagePath, 'Нет изображения', 48, '#A9A9A9');
+                \yii\imagine\Image::frame($imagePath, 20, '#A9A9A9', 100)->save($imagePath);
                 $images[] = new UploadedFile(['tempName' => $imagePath, 'name' => basename($imagePath)]);
             }
             foreach ($images as $key => $image) {
-                $filename_small = md5($model->id) . "{$key}_" . Image::SMALL . '.' . $image->extension;
-                $this->thumbs_image($image->tempName, $path . 'thumbs/', $filename_small, 146, 106);
-                $model->link('smallImage', $small_image = new Image([
-                    'name' => $filename_small,
-                    'size' => Image::SMALL,
-                    'object_type' => 'car'
-                ]));
-                $filename_large = md5($model->id) . "{$key}_" . Image::LARGE . '.' . $image->extension;
-                $this->thumbs_image($image->tempName, $path . 'thumbs/', $filename_large, 720, 540);
-                $model->link('smallImage', $large_image = new Image([
-                    'name' => $filename_large,
-                    'size' => Image::LARGE,
-                    'object_type' => 'car'
-                ]));
+                $imageLarge = md5($model->id) . "{$key}_" . Image::LARGE . '.' . $image->extension;
+                $this->thumbs_image($image->tempName, $path . $imageLarge, 720, 540);
+                $model->link('smallImage', new Image(['name' => $imageLarge, 'size' => Image::LARGE, 'object_type' => 'car']));
+                $imageSmall = md5($model->id) . "{$key}_" . Image::SMALL . '.' . $image->extension;
+                $this->thumbs_image($image->tempName, $path . $imageSmall, 146, 106);
+                $model->link('smallImage', new Image(['name' => $imageSmall, 'size' => Image::SMALL, 'object_type' => 'car']));
             }
             return $this->redirect(['view', 'id' => $model->id]);
         }
@@ -148,10 +149,10 @@ class CarController extends Controller
     public function actionUpdate($id)
     {
         $model = Car::find()->where(['id' => $id])->with('devices')->limit(1)->one();
-        $aDeviceTypes = $this->device_types_distribution();
+        $aDeviceTypes = $this->deviceTypesDistribution();
         $aOldDevicesIds = ArrayHelper::map($model->devices, 'id', 'id');
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            $this->car_add_devices($model, $aOldDevicesIds, Yii::$app->request->post('devices'));
+            $this->carAddDevices($model, $aOldDevicesIds, Yii::$app->request->post('devices'));
             return $this->redirect(['view', 'id' => $model->id]);
         }
 
@@ -213,13 +214,15 @@ class CarController extends Controller
 
     protected static function delTree($dir) {
         $files = array_diff(scandir($dir), array('.', '..'));
-        foreach ($files as $file) {
-            (is_dir("$dir/$file")) ? self::delTree("$dir/$file") : unlink("$dir/$file");
+        if ($files) {
+            foreach ($files as $file) {
+                (is_dir("$dir/$file")) ? self::delTree("$dir/$file") : unlink("$dir/$file");
+            }
         }
         return rmdir($dir);
     }
 
-    protected function device_types_distribution()
+    protected function deviceTypesDistribution()
     {
         $aDeviceTypes = [];
         $aDevices = Device::find()->with('deviceType')->asArray()->all();
@@ -229,7 +232,7 @@ class CarController extends Controller
         return $aDeviceTypes;
     }
 
-    private function car_add_devices(Car $oModel, array $aOldDevicesIds, array $aNewDevicesIds)
+    private function carAddDevices(Car $oModel, array $aOldDevicesIds, array $aNewDevicesIds)
     {
         $aNewDevicesIds = Yii::$app->request->post('devices');
         $ids_to_delete = array_diff($aOldDevicesIds, $aNewDevicesIds);
@@ -246,15 +249,44 @@ class CarController extends Controller
         }
     }
 
-    /*public function car_add_image(Car $oModel, string $image_path,  $size, $width, $height)
-    {
-        $this->thumbs_image($image_path, str_replace('full', 'thumbs', $image_path), $width, $height);
-        $large_image = new Image([
-            'name' => pathinfo($image_path, PATHINFO_FILENAME ),
-            'size' => $size,
-            'object_id' => $oModel->id,
-            'object_type' => (new ReflectionClass($oModel))->getShortName()
-        ]);
-        $large_image->save(false);
-    }*/
+    protected function createImage(
+        string $path,
+        string $color = '#000',
+        $alpha = null,
+        $width = 720,
+        $height = 540
+    ) {
+        $imagine = new Imagine();
+        $palette = new RGB();
+        $size  = new Box($width, $height);
+        $color = $palette->color($color, $alpha);
+        $image = $imagine->create($size, $color);
+        if (!file_exists(dirname($path))) {
+            FileHelper::createDirectory(dirname($path));
+        }
+        $image->save($path);
+    }
+
+    protected function imageWriteText(
+        string $path,
+        string $text,
+        int $fontSize = 16,
+        string $fontColor = '#000',
+        $x = null,
+        $y = null
+    ) {
+        $fontFile = Yii::getAlias('@webroot/fonts/arsenal/arsenal-regular.ttf');
+        $fontOptions = [
+            'size'  => $fontSize,    // Размер шрифта
+            'color' => $fontColor, // цвет шрифта
+            'angle' => 0     // Угол 90 градусов
+        ];
+        $bbox = imagettfbbox($fontSize, 0, $fontFile, $text);
+        /*echo '<pre>' . print_r($bbox, true) . '</pre>';*/
+        list($width, $height) = getimagesize($path);
+        $x = $x ?? ($bbox[0] + ($width / 2) - ($bbox[4] / 2));
+        $y = $y ?? (($height - $fontSize) / 2);
+
+        \yii\imagine\Image::text($path, $text, $fontFile, [$x, $y], $fontOptions)->save($path, ['quality' => 80]);
+    }
 }

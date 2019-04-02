@@ -3,6 +3,7 @@
 namespace app\traits;
 
 use function copy;
+use function dirname;
 use function file_exists;
 use function floor;
 use function getimagesize;
@@ -37,28 +38,28 @@ trait ImageTrait
     /**
      * Change image.
      * 
-     * @param string $image_path
-     * @param string $path
+     * @param string $destImagePath
+     * @param string $targetImagePath
      * @param string $filename
      * @param $width
      * @param $height
      */
-    public function thumbs_image(string $image_path, string $path, string $filename, $new_width, $new_height)
+    public function thumbs_image(string $destImagePath, string $targetImagePath, $widthNew, $heightNew)
     {
         $imagine = Image::getImagine();
-        $image = $imagine->open($image_path);
-        if (!file_exists($path)) {
-            FileHelper::createDirectory($path, 0775);
+        $image = $imagine->open($destImagePath);
+        if (!file_exists(dirname($targetImagePath))) {
+            FileHelper::createDirectory(dirname($targetImagePath), 0775);
         }
-        list($width, $height) = getimagesize($image_path);
+        list($width, $height) = getimagesize($destImagePath);
         if ($width > $height) {
-            $image_height = floor(($height / $width) * $new_width);
-            $image_width  = $new_width;
+            $image_height = floor(($height / $width) * $widthNew);
+            $image_width  = $widthNew;
         } else {
-            $image_width  = floor(($width / $height) * $new_height);
-            $image_height = $new_height;
+            $image_width  = floor(($width / $height) * $heightNew);
+            $image_height = $heightNew;
         }
 
-        $image->resize(new Box($image_width, $image_height))->save($path . $filename, ['quality' => 100]);
+        $image->resize(new Box($image_width, $image_height))->save($targetImagePath, ['quality' => 100]);
     }
 }
